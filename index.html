@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#1b1f25">
+<title>Capital Wars</title>
+<style>
+:root{--bg:#1b1f25;--panel:#252a32;--panel2:#2e343d;--ink:#ece8df;--muted:#9aa3ad;--gold:#e0ad4a;--red:#e65a4f;--green:#4fbf7f;--blue:#5aa2e0}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter","Segoe UI",system-ui,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;max-width:1100px;margin:0 auto;flex-wrap:wrap}
+h1{margin:0;font-size:20px;letter-spacing:.06em;font-weight:800}
+h1 span{color:var(--gold)}
+.hbtns{display:flex;gap:6px;flex-wrap:wrap}
+button,select,input{font:inherit}
+button{border:0;border-radius:8px;padding:8px 13px;background:var(--panel2);color:var(--ink);cursor:pointer;font-weight:600;touch-action:manipulation}
+button:hover:not(:disabled){filter:brightness(1.2)}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:var(--gold);color:#1b1f25}
+button.danger{background:var(--red);color:#fff}
+button.small{padding:5px 10px;font-size:13px}
+select{border:0;border-radius:8px;padding:8px 10px;background:var(--panel2);color:var(--ink);font-weight:600;cursor:pointer}
+input[type=text]{border:0;border-radius:8px;padding:9px 11px;background:var(--panel2);color:var(--ink);text-transform:uppercase;letter-spacing:.15em;width:130px;font-weight:700}
+.hidden{display:none!important}
+.wrap{display:flex;gap:18px;padding:0 14px 24px;align-items:flex-start;justify-content:center;flex-wrap:wrap;max-width:1100px;margin:0 auto}
+#boardWrap{position:relative;width:min(calc(100vw - 20px),calc(100vh - 80px),660px);aspect-ratio:1;border-radius:8px;overflow:hidden;box-shadow:0 10px 34px #000a;flex:none;touch-action:manipulation}
+@media (max-width:700px){#boardWrap{width:calc(100vw - 16px)}.wrap{padding:0 8px 20px;gap:12px}}
+#boardWrap svg{position:absolute;inset:0;width:100%;height:100%}
+#fx,#front{pointer-events:none}
+#boardWrap.shake{animation:shake .35s}
+@keyframes shake{0%,100%{transform:none}25%{transform:translate(3px,-2px)}50%{transform:translate(-3px,2px)}75%{transform:translate(2px,1px)}}
+#board{position:absolute;inset:0;display:grid;grid-template-columns:repeat(18,1fr);grid-template-rows:repeat(18,1fr)}
+.cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.dot{width:74%;height:74%;border-radius:50%;transition:transform .15s,box-shadow .15s,opacity .2s;position:relative;z-index:1}
+.dot.b{background:radial-gradient(circle at 35% 30%,#5b5f66,#111 60%);box-shadow:0 1px 2px #0009}
+.dot.w{background:radial-gradient(circle at 35% 30%,#fff,#cfcac0 70%);box-shadow:0 1px 2px #0007}
+body.darkskin .dot.b{box-shadow:0 0 0 1.5px #ffffffaa,0 1px 3px #000}
+.dot.orphan{opacity:.5}
+.dot.pop{animation:pop .3s}
+@keyframes pop{0%{transform:scale(.2)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+.cell.place::after,.cell.mv::after{content:"";position:absolute;width:32%;height:32%;border-radius:50%;z-index:2}
+.cell.place::after{background:#3fae6fdd}
+.cell.mv::after{border:2px solid #3fae6f;background:#3fae6f44;width:44%;height:44%}
+.cell.place:hover::after{width:60%;height:60%}
+.cell.mv:hover::after{width:62%;height:62%}
+.cell.sel .dot{box-shadow:0 0 0 3px var(--gold),0 0 14px var(--gold);transform:scale(1.06)}
+.cell.atk .dot{box-shadow:0 0 0 3px var(--red),0 0 10px var(--red)}
+.cell.last::before{content:"";position:absolute;inset:10%;border-radius:50%;border:2px dashed #e0ad4a99}
+.flick{animation:flick .6s infinite alternate}
+@keyframes flick{from{opacity:.95}to{opacity:.55}}
+.ember{animation:ember 1.4s infinite ease-out}
+@keyframes ember{from{transform:translateY(0);opacity:1}to{transform:translateY(-.5px);opacity:0}}
+.boom{fill:none;stroke:#ffcf6a;stroke-width:.14;transform-box:fill-box;transform-origin:center;animation:boom .8s ease-out forwards}
+.boom2{fill:#ff8a3a;transform-box:fill-box;transform-origin:center;animation:boom2 .6s ease-out forwards}
+@keyframes boom{from{transform:scale(.3);opacity:1}to{transform:scale(2.8);opacity:0}}
+@keyframes boom2{from{transform:scale(.4);opacity:.9}to{transform:scale(1.6);opacity:0}}
+
+aside{width:min(calc(100vw - 16px),360px);display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border-radius:10px;padding:12px 14px}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pcard{background:var(--panel);border-radius:10px;padding:10px 12px;border:2px solid transparent;transition:border-color .2s}
+.pcard.active{border-color:var(--gold)}
+.pname{display:flex;align-items:center;gap:8px;font-weight:800;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.psub{font-size:12px;color:var(--gold);margin-bottom:6px;min-height:15px}
+.chip{width:16px;height:16px;border-radius:50%;flex:none;display:inline-block}
+.chip.b{background:#111;border:1px solid #666}.chip.w{background:#eee}
+.stat{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:1px 0}
+.stat b{color:var(--ink)}
+.capbar{display:flex;gap:3px;margin:4px 0 6px}
+.capbar i{flex:1;height:6px;border-radius:3px;background:#ffffff18}
+.capbar i.on{background:var(--gold)}
+#phase{font-size:15px;font-weight:800;margin-bottom:4px}
+#hint{font-size:13px;color:var(--muted);line-height:1.5;min-height:38px}
+.pips{display:flex;gap:6px;margin:8px 0}
+.pips i{width:22px;height:8px;border-radius:4px;background:#ffffff18}
+.pips i.on{background:var(--green)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#log{font-size:12.5px;color:var(--muted);max-height:200px;overflow:auto;line-height:1.55;margin:0;padding-left:0;list-style:none}
+#log li{padding:2px 0;border-bottom:1px solid #ffffff0d}
+#log li:first-child{color:var(--ink)}
+.ctitle{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 6px}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend svg{width:18px;height:18px;border-radius:3px;flex:none}
+
+.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:10;padding:12px}
+.box{background:var(--panel);border-radius:14px;padding:20px;max-width:560px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 20px 60px #000c}
+.box h2{margin:0 0 10px;font-size:20px}
+.duel{display:flex;align-items:flex-start;justify-content:space-around;gap:10px;margin:10px 0}
+.side{text-align:center;flex:1}
+.lbl{font-size:13px;color:var(--muted);margin-bottom:8px}
+.die{width:84px;height:84px;margin:0 auto;border-radius:16px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;border:3px solid #ffffff22}
+.die.win{border-color:var(--green);box-shadow:0 0 18px #4fbf7f66}
+.die.lose{border-color:var(--red);opacity:.7}
+.die.roll{color:var(--muted)}
+.bonus{font-size:12.5px;color:var(--gold);margin-top:6px;min-height:18px;line-height:1.4}
+.vs{font-weight:900;color:var(--muted);margin-top:40px}
+#cRes{text-align:center;font-size:17px;font-weight:800;margin:8px 0 12px;min-height:24px}
+#cBtns{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.rules h3{font-size:15px;margin:14px 0 4px;color:var(--gold)}
+.rules p,.rules li{font-size:13.5px;line-height:1.6;color:#d6d2c9}
+.rules ul{margin:4px 0;padding-left:18px}
+.note{font-size:12.5px;color:var(--muted);background:var(--panel2);border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.5}
+.tabs{display:flex;gap:6px;background:var(--panel2);padding:4px;border-radius:10px}
+.tabs button{flex:1;background:transparent;padding:9px 6px}
+.tabs button.on{background:var(--gold);color:#1b1f25}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:90px;text-align:left;padding:10px}
+.seg button small{display:block;font-weight:400;color:var(--muted);font-size:11.5px;margin-top:2px}
+.seg button.on{background:var(--gold);color:#1b1f25}
+.seg button.on small{color:#3b3226}
+.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.skin{background:var(--panel2);border-radius:10px;padding:5px;cursor:pointer;border:2px solid transparent;text-align:center;font-size:11.5px;font-weight:700}
+.skin.on{border-color:var(--gold)}
+.skin svg{width:100%;aspect-ratio:1;border-radius:6px;display:block;margin-bottom:4px}
+.big{width:100%;padding:14px;font-size:16px;margin-top:16px}
+.list{display:flex;flex-direction:column;gap:6px}
+.lrow{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel2);border-radius:8px;padding:8px 10px;font-size:13.5px}
+.lrow .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:11px;font-weight:800;padding:2px 7px;border-radius:20px;background:#4fbf7f33;color:var(--green);margin-left:6px}
+.badge.warn{background:#e65a4f33;color:var(--red)}
+.codebox{font-size:30px;font-weight:900;letter-spacing:.25em;text-align:center;background:var(--panel2);border-radius:10px;padding:12px;margin:8px 0;color:var(--gold)}
+.muted{color:var(--muted);font-size:13px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <h1>CAPITAL <span>WARS</span></h1>
+  <div class="hbtns">
+    <select id="skinSel" title="Board skin"></select>
+    <button id="btnRules">Rules</button>
+    <button id="btnResign" class="hidden">Resign</button>
+    <button id="btnMenu">Menu</button>
+  </div>
+</header>
+<div class="wrap">
+  <div id="boardWrap">
+    <svg id="back" viewBox="0 0 18 18" preserveAspectRatio="none"></svg>
+    <svg id="fx" viewBox="0 0 18 18" preserveAspectRatio="none">
+      <defs>
+        <radialGradient id="gBurn"><stop offset="0" stop-color="#ffd27a"/><stop offset=".35" stop-color="#f0602a"/><stop offset=".75" stop-color="#5a1a08" stop-opacity=".7"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+        <radialGradient id="gScorch"><stop offset="0" stop-color="#120a06" stop-opacity=".92"/><stop offset=".6" stop-color="#2a1a10" stop-opacity=".6"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+      </defs>
+      <g id="fxScars"></g><g id="fxBoom"></g>
+    </svg>
+    <div id="board"></div>
+    <svg id="front" viewBox="0 0 18 18" preserveAspectRatio="none"></svg>
+  </div>
+  <aside>
+    <div class="card hidden" id="matchCard"></div>
+    <div class="players"><div class="pcard" id="pc1"></div><div class="pcard" id="pc2"></div></div>
+    <div class="card">
+      <div id="phase"></div>
+      <div id="hint"></div>
+      <div class="pips" id="pips"></div>
+      <div class="row">
+        <button id="btnDonePlace" class="primary">Finish Deploying</button>
+        <button id="btnEnd" class="primary">End Turn</button>
+      </div>
+    </div>
+    <div class="card hidden" id="legendCard">
+      <div class="ctitle" style="margin-top:0">Terrain</div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="card">
+      <div class="ctitle" style="margin-top:0">Battle Log</div>
+      <ul id="log"></ul>
+    </div>
+  </aside>
+</div>
+
+<!-- combat -->
+<div id="combat" class="modal hidden"><div class="box">
+  <h2 id="cTitle">Battle</h2>
+  <div class="duel">
+    <div class="side"><div class="lbl" id="lA">Attacker (d20)</div><div class="die" id="dA">?</div><div class="bonus" id="mA"></div></div>
+    <div class="vs">VS</div>
+    <div class="side"><div class="lbl" id="lD">Defender (d12)</div><div class="die" id="dD">?</div><div class="bonus" id="mD"></div></div>
+  </div>
+  <div id="cRes"></div>
+  <div id="cBtns"></div>
+  <button id="cOk" class="primary" style="width:100%">Continue</button>
+  <div id="cWait" class="muted hidden" style="text-align:center">Waiting for the attacker to continue…</div>
+</div></div>
+
+<!-- menu -->
+<div id="start" class="modal"><div class="box">
+  <div class="row" style="justify-content:space-between"><h2 style="margin:0">Capital Wars</h2><button id="btnResume" class="small hidden">Back to game ✕</button></div>
+  <p class="muted" style="margin:6px 0 12px">18×18 battlefield, 9 territories. Hold 6 capitals on your own, or wipe out every enemy dot.</p>
+  <div class="tabs" id="tabs">
+    <button data-tab="cpu" class="on">vs Computer</button>
+    <button data-tab="local">2 Players</button>
+    <button data-tab="online">Online</button>
+  </div>
+  <div id="tab-cpu">
+    <div class="ctitle">Computer level</div>
+    <div class="seg" id="levels"></div>
+  </div>
+  <div id="tab-local" class="hidden"><p class="muted" style="margin-top:12px">Two players take turns on the same device. Not rated.</p></div>
+  <div id="tab-online" class="hidden"><div id="onlineBox"></div></div>
+  <div id="setupBox">
+    <div class="ctitle">Map</div>
+    <div class="seg" id="mapSeg">
+      <button data-terr="0">Open Field<small>No terrain</small></button>
+      <button data-terr="1">Terrain<small>Rivers, forests, hills, mountains</small></button>
+    </div>
+    <div class="ctitle">Battlefield skin</div>
+    <div id="skinGrid" class="skins"></div>
+    <button id="btnStart" class="primary big">Start Battle</button>
+  </div>
+</div></div>
+
+<!-- rules -->
+<div id="rules" class="modal hidden"><div class="box rules">
+  <h2>Rules</h2>
+  <h3>Victory</h3>
+  <ul><li>Control 6 capitals <b>on your own</b></li><li>OR eliminate all of your opponent's dots</li></ul>
+  <h3>Board</h3>
+  <p>18×18 grid split into 9 territories (6×6). The gold 2×2 block in the middle of each territory is a <b>capital</b>. You control it if one of your dots is inside it or right next to it (the dashed 4×4 area). If both players have a dot there, it is <b>contested</b>: both get its reinforcement, but it doesn't count toward the 6.</p>
+  <h3>Setup</h3>
+  <p>Black starts inside the top-left capital on its outer corner. White starts inside the bottom-right capital on its <b>inner</b> corner, one step closer to the centre, to make up for moving second.</p>
+  <h3>Turn</h3>
+  <ul>
+    <li><b>1. Reinforce</b>: +1 dot per capital you control (contested ones count), max 3. Place each next to one of your dots (diagonals count) that is connected to a capital.</li>
+    <li><b>2. Action ×3</b>: move or attack. The same dot may act more than once.</li>
+    <li><b>Move</b>: 1 square in any of 8 directions. You can't slip diagonally between 2 enemy dots (or mountains).</li>
+  </ul>
+  <h3>Combat</h3>
+  <ul>
+    <li>Attacker rolls d20, defender rolls d12. The higher total wins and the losing dot is removed. The winner gains 1 capture piece.</li>
+    <li>If the attacker wins, the attacking dot moves in. On a tie nothing happens and the action is used up.</li>
+    <li><b>Fortification</b>: a defender inside a capital, attacked from outside it, gets +1 for each of its own dots inside that capital. The capital's walls grow taller as more dots wait inside.</li>
+    <li><b>Spending</b>: after the roll, pay 2 capture pieces to force your opponent to reroll.</li>
+  </ul>
+  <h3>Surrounding</h3>
+  <p>A dot whose 4 orthogonal neighbours, or whose 4 diagonal neighbours, are all enemy dots is captured immediately. Board edges and mountains count as walls, but at least 2 enemy dots are needed.</p>
+  <h3>Terrain (Terrain map only)</h3>
+  <ul>
+    <li><b>River</b>: a dot standing in a river gets −1 on its roll, whether attacking or defending.</li>
+    <li><b>Forest</b>: a dot defending in a forest gets +1.</li>
+    <li><b>Hill</b>: a dot attacking from a hill gets +1.</li>
+    <li><b>Mountain</b>: impassable. Nobody can move or deploy there.</li>
+  </ul>
+  <p>Terrain maps are generated mirrored (rotated 180°), so both sides get the same ground.</p>
+  <h3>Who goes first</h3>
+  <p>Black moves first. White starts deeper in its capital and <b>automatically wins its first battle.</b></p>
+  <h3>Rating (Elo)</h3>
+  <p>Everyone starts at 1000. Online games and games against the computer change your rating. Beating a stronger player earns more points, and losing to a weaker one costs more. The lobby marks fair matches (within 200 points).</p>
+  <div class="note"><b>Interpretations</b><br>
+  · Capitals are 2×2. "Adjacent" includes diagonals.<br>
+  · If the defender wins, the attacking dot is removed.<br>
+  · White's first-battle bonus applies to the first battle White is in, whether attacking or defending.<br>
+  · Only the side that is losing (or tied) can spend captures to force a reroll.</div>
+  <button class="primary" style="width:100%;margin-top:14px" onclick="document.getElementById('rules').classList.add('hidden')">Close</button>
+</div></div>
+
+<!-- game over -->
+<div id="over" class="modal hidden"><div class="box" style="text-align:center">
+  <h2 id="overT"></h2><p id="overP" class="muted"></p><p id="overE" style="font-weight:800;color:var(--gold)"></p>
+  <div class="row" style="justify-content:center"><button class="primary" id="btnAgain">Play Again</button><button id="btnOverClose">View Board</button></div>
+</div></div>
+
+<script>
+// ================= core geometry =================
+const N=18,B=1,W=2,SZ=N*N;
+const opp=p=>3-p, idx=(r,c)=>r*N+c, rOf=i=>Math.floor(i/N), cOf=i=>i%N, inB=(r,c)=>r>=0&&r<N&&c>=0&&c<N;
+const D8=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const ORTH=[[-1,0],[1,0],[0,-1],[0,1]], DIAG=[[-1,-1],[-1,1],[1,-1],[1,1]];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const roll=n=>1+Math.floor(Math.random()*n), rnd=n=>Math.floor(Math.random()*n);
+const NB8=[];for(let i=0;i<SZ;i++){const r=rOf(i),c=cOf(i),o=[];for(const[dr,dc]of D8)if(inB(r+dr,c+dc))o.push(idx(r+dr,c+dc));NB8.push(o)}
+const CAPS=[],capOf=new Array(SZ).fill(-1),ZONE=new Array(SZ).fill(false);
+for(let tr=0;tr<3;tr++)for(let tc=0;tc<3;tc++){
+  const r0=tr*6+2,c0=tc*6+2,id=CAPS.length;
+  const cells=[idx(r0,c0),idx(r0,c0+1),idx(r0+1,c0),idx(r0+1,c0+1)];
+  cells.forEach(i=>capOf[i]=id);
+  const cap={id,r0,c0,cells,zr0:r0-1,zr1:r0+2,zc0:c0-1,zc1:c0+2};
+  for(let r=cap.zr0;r<=cap.zr1;r++)for(let c=cap.zc0;c<=cap.zc1;c++)ZONE[idx(r,c)]=true;
+  CAPS.push(cap);
+}
+const distZone=(cap,i)=>{const r=rOf(i),c=cOf(i);return Math.max(cap.zr0-r,0,r-cap.zr1,cap.zc0-c,c-cap.zc1)};
+const cellName=i=>String.fromCharCode(65+cOf(i))+(rOf(i)+1);
+const T_NONE=0,T_RIVER=1,T_FOREST=2,T_MTN=3,T_HILL=4;
+const TNAME={1:'River',2:'Forest',3:'Mountain',4:'Hill'};
+
+let G=null; // the whole game state (serialisable)
+
+function canStep(b,from,to,p,t){
+  t=t||G.terr; if(t[to]===T_MTN)return false;
+  const fr=rOf(from),fc=cOf(from),tr=rOf(to),tc=cOf(to);
+  if(fr!==tr&&fc!==tc){const e=opp(p),s1=idx(fr,tc),s2=idx(tr,fc);const blk=x=>b[x]===e||t[x]===T_MTN;if(blk(s1)&&blk(s2))return false}
+  return true;
+}
+function capControl(b){
+  return CAPS.map(cap=>{const h={1:false,2:false};
+    for(let r=cap.zr0;r<=cap.zr1;r++)for(let c=cap.zc0;c<=cap.zc1;c++){const v=b[idx(r,c)];if(v)h[v]=true}
+    return h;});
+}
+function stats(b,p){
+  const ctrl=capControl(b);let excl=0,cont=0;
+  ctrl.forEach(h=>{if(h[p]&&h[opp(p)])cont++;else if(h[p])excl++});
+  let dots=0;for(let i=0;i<SZ;i++)if(b[i]===p)dots++;
+  return {excl,cont,prod:Math.min(3,excl+cont),dots,ctrl};
+}
+function connectedSet(b,p){
+  const seen=new Set(),st=[];
+  for(let i=0;i<SZ;i++)if(b[i]===p&&ZONE[i]){seen.add(i);st.push(i)}
+  while(st.length){const i=st.pop();for(const n of NB8[i])if(b[n]===p&&!seen.has(n)&&canStep(b,i,n,p)){seen.add(n);st.push(n)}}
+  return seen;
+}
+function validPlacements(b,p){
+  const con=connectedSet(b,p),out=new Set();
+  con.forEach(i=>{for(const n of NB8[i])if(b[n]===0&&canStep(b,i,n,p))out.add(n)});
+  return [...out];
+}
+const moveTargets=(b,i)=>NB8[i].filter(n=>b[n]===0&&canStep(b,i,n,b[i]));
+const attackTargets=(b,i)=>NB8[i].filter(n=>b[n]===opp(b[i])&&canStep(b,i,n,b[i]));
+function isSurrounded(b,i){
+  const e=opp(b[i]),r=rOf(i),c=cOf(i),t=G.terr;
+  for(const set of [ORTH,DIAG]){let ok=true,cnt=0;
+    for(const[dr,dc]of set){if(!inB(r+dr,c+dc))continue;const n=idx(r+dr,c+dc);if(t[n]===T_MTN)continue;if(b[n]===e)cnt++;else{ok=false;break}}
+    if(ok&&cnt>=2)return true;}
+  return false;
+}
+function resolveSurround(b,actor){
+  const q=opp(actor),a=[],o=[];
+  for(let i=0;i<SZ;i++)if(b[i]===q&&isSurrounded(b,i))a.push(i);
+  a.forEach(i=>b[i]=0);
+  for(let i=0;i<SZ;i++)if(b[i]===actor&&isSurrounded(b,i))o.push(i);
+  o.forEach(i=>b[i]=0);
+  return {oppLost:a,ownLost:o};
+}
+function fortBonus(b,from,to){
+  const cap=capOf[to];if(cap<0||capOf[from]===cap)return 0;
+  return CAPS[cap].cells.filter(i=>b[i]===b[to]).length;
+}
+function mods(b,from,to){
+  const t=G.terr,am=[],dm=[];
+  if(t[from]===T_HILL)am.push(['Hill',1]);
+  if(t[from]===T_RIVER)am.push(['River',-1]);
+  const fb=fortBonus(b,from,to);if(fb)dm.push(['Fortification',fb]);
+  if(t[to]===T_FOREST)dm.push(['Forest',1]);
+  if(t[to]===T_RIVER)dm.push(['River',-1]);
+  const s=a=>a.reduce((x,y)=>x+y[1],0);
+  return {am,dm,A:s(am),D:s(dm)};
+}
+const PCACHE={};
+function probs(A,D){ // P(attacker d20+A beats defender d12+D)
+  const k=A+','+D;if(PCACHE[k])return PCACHE[k];
+  let w=0,t=0;for(let a=1;a<=20;a++)for(let d=1;d<=12;d++){const x=a+A,y=d+D;if(x>y)w++;else if(x===y)t++}
+  return PCACHE[k]={w:w/240,t:t/240,l:1-(w+t)/240};
+}
+
+// ================= terrain =================
+function genTerrain(){
+  for(let tries=0;tries<120;tries++){
+    const t=new Array(SZ).fill(0);
+    const ok=i=>!ZONE[i]&&!ZONE[SZ-1-i];
+    const put=(i,v)=>{if(!ok(i)||(t[i]&&t[i]!==v))return false;t[i]=v;t[SZ-1-i]=v;return true};
+    let r=0,c=5+rnd(8);
+    for(let s=0;s<30&&r<9;s++){put(idx(r,c),T_RIVER);const mv=[[1,0],[1,0],[1,1],[1,-1],[0,1],[0,-1]][rnd(6)];if(inB(r+mv[0],c+mv[1])){r+=mv[0];c+=mv[1]}}
+    if(Math.random()<.6){r=5+rnd(8);c=0;
+      for(let s=0;s<30&&c<9;s++){put(idx(r,c),T_RIVER);const mv=[[0,1],[0,1],[1,1],[-1,1],[1,0],[-1,0]][rnd(6)];if(inB(r+mv[0],c+mv[1])){r+=mv[0];c+=mv[1]}}}
+    const clump=(v,count,mn,mx)=>{for(let k=0;k<count;k++){const cur=idx(rnd(9),rnd(N));if(!ok(cur)||t[cur])continue;
+      const size=mn+rnd(mx-mn+1),cells=[cur];put(cur,v);let g=0;
+      while(cells.length<size&&g++<40){const base=cells[rnd(cells.length)],nb=NB8[base][rnd(NB8[base].length)];if(rOf(nb)<9&&ok(nb)&&!t[nb]){put(nb,v);cells.push(nb)}}}};
+    clump(T_MTN,3,2,4);clump(T_FOREST,4,3,6);clump(T_HILL,3,1,3);
+    const b0=new Array(SZ).fill(0),seen=new Uint8Array(SZ),st=[idx(2,2)];seen[st[0]]=1;
+    while(st.length){const i=st.pop();for(const n of NB8[i])if(!seen[n]&&canStep(b0,i,n,B,t)){seen[n]=1;st.push(n)}}
+    let good=true;for(let i=0;i<SZ;i++)if(t[i]!==T_MTN&&!seen[i]){good=false;break}
+    if(good)return t;
+  }
+  return new Array(SZ).fill(0);
+}
+
+// ================= skins & drawing helpers =================
+const SKINS={
+  classic:{name:'Parchment',a:'#cdb88c',b:'#b9a072',cap:'#ecc96f',star:'#a8792255',grid:'#00000022',zone:'#00000040',line:'#00000066'},
+  field:{name:'Battlefield',a:'#7d9659',b:'#6a8449',cap:'#c8b25a',star:'#5a4a1477',grid:'#00000026',zone:'#00000050',line:'#1c2a1288'},
+  desert:{name:'Desert Storm',a:'#e3c690',b:'#d0ad72',cap:'#d98a4a',star:'#7a3a1266',grid:'#5a3a1426',zone:'#5a3a1455',line:'#5a3a1488'},
+  arctic:{name:'Arctic Front',a:'#dde6ec',b:'#c5d3dd',cap:'#8fb9d6',star:'#24506e66',grid:'#24506e22',zone:'#24506e55',line:'#24506e88'},
+  night:{name:'Night Ops',a:'#2c3b33',b:'#24322b',cap:'#4d6e3b',star:'#a4e37d88',grid:'#ffffff14',zone:'#a4e37d55',line:'#a4e37d55',dark:true},
+  blueprint:{name:'War Room',a:'#1f4f7c',b:'#1a4670',cap:'#3477b3',star:'#ffffff66',grid:'#ffffff1c',zone:'#ffffff55',line:'#ffffff66',dark:true},
+  scorched:{name:'Scorched Earth',a:'#4b3c36',b:'#3f322d',cap:'#b0461f',star:'#ffb36b88',grid:'#ffffff12',zone:'#ff9a5a55',line:'#00000088',dark:true},
+};
+let SKIN='classic';try{const v=localStorage.getItem('cw-skin');if(v&&SKINS[v])SKIN=v}catch(e){}
+function terrCell(v,x,y){
+  if(v===T_RIVER)return `<rect x="${x}" y="${y}" width="1" height="1" fill="#3f86c4" opacity=".8"/><path d="M${x+.12} ${y+.42} q.19 -.16 .38 0 t.38 0 M${x+.12} ${y+.7} q.19 -.16 .38 0 t.38 0" stroke="#cfeaff" stroke-width=".05" fill="none" opacity=".85"/>`;
+  if(v===T_FOREST)return `<rect x="${x}" y="${y}" width="1" height="1" fill="#3e6b34" opacity=".6"/><path d="M${x+.28} ${y+.14} l.19 .36 h-.38z M${x+.7} ${y+.3} l.19 .36 h-.38z M${x+.4} ${y+.52} l.19 .36 h-.38z" fill="#1d4a1b"/>`;
+  if(v===T_MTN)return `<rect x="${x}" y="${y}" width="1" height="1" fill="#6f675e" opacity=".9"/><path d="M${x+.06} ${y+.92} L${x+.42} ${y+.18} L${x+.6} ${y+.5} L${x+.73} ${y+.34} L${x+.96} ${y+.92}Z" fill="#48423c"/><path d="M${x+.33} ${y+.37} L${x+.42} ${y+.18} L${x+.51} ${y+.37}Z" fill="#f2f2f2"/>`;
+  if(v===T_HILL)return `<rect x="${x}" y="${y}" width="1" height="1" fill="#a8925e" opacity=".5"/><path d="M${x+.08} ${y+.78} q.24 -.42 .48 0 M${x+.42} ${y+.78} q.24 -.48 .5 0" stroke="#6b5a32" stroke-width=".07" fill="none"/>`;
+  return '';
+}
+function skinSVG(k,mini,terr){
+  const K=SKINS[k];let h='';
+  for(let tr=0;tr<3;tr++)for(let tc=0;tc<3;tc++)h+=`<rect x="${tc*6}" y="${tr*6}" width="6" height="6" fill="${(tr+tc)%2?K.b:K.a}"/>`;
+  if(terr)for(let i=0;i<SZ;i++)if(terr[i])h+=terrCell(terr[i],cOf(i),rOf(i));
+  if(!mini)for(let n=0;n<=N;n++)h+=`<line x1="${n}" y1="0" x2="${n}" y2="18" stroke="${K.grid}" stroke-width=".03"/><line x1="0" y1="${n}" x2="18" y2="${n}" stroke="${K.grid}" stroke-width=".03"/>`;
+  CAPS.forEach(c=>{
+    if(!mini)h+=`<rect x="${c.zc0+.06}" y="${c.zr0+.06}" width="3.88" height="3.88" fill="none" stroke="${K.zone}" stroke-width=".05" stroke-dasharray=".18 .14" rx=".2"/>`;
+    h+=`<rect x="${c.c0}" y="${c.r0}" width="2" height="2" fill="${K.cap}" rx=".12"/>`;
+    h+=`<text x="${c.c0+1}" y="${c.r0+1.38}" font-size="1.15" text-anchor="middle" fill="${K.star}">★</text>`;
+  });
+  if(mini){for(const n of [6,12])h+=`<line x1="${n}" y1="0" x2="${n}" y2="18" stroke="${K.line}" stroke-width=".12"/><line x1="0" y1="${n}" x2="18" y2="${n}" stroke="${K.line}" stroke-width=".12"/>`;
+    h+=`<circle cx="2.5" cy="2.5" r=".45" fill="#111"/><circle cx="14.5" cy="14.5" r=".45" fill="#eee"/>`;}
+  return h;
+}
+
+// ================= UI state =================
+const LV={
+  easy:{name:'Easy',desc:'Makes plenty of mistakes',noise:10,rand:.45,threat:0,look:false,reroll:99,elo:800},
+  medium:{name:'Medium',desc:'Solid, a bit careless',noise:.5,rand:.06,threat:1,look:false,reroll:4,elo:1100},
+  hard:{name:'Hard',desc:'Reads the dice odds',noise:.12,rand:0,threat:2,look:false,reroll:2,elo:1400},
+  extreme:{name:'Extreme',desc:'Plans 2 actions ahead',noise:.04,rand:0,threat:2,look:true,reroll:2,elo:1700},
+};
+const UI={mode:null,level:'medium',aiSide:W,sel:-1,terrOn:false,tab:'cpu',combatId:null,cA:null,cD:null,animating:false,
+  overShown:false,fxSeen:0,aiRunning:false,combatWaiters:[],eloMsg:'',lock:false,backKey:''};
+const NAMES={1:'Black',2:'White'};
+
+function canControl(side){
+  if(!G||G.over)return false;
+  if(UI.mode==='local')return true;
+  if(UI.mode==='cpu')return side!==UI.aiSide;
+  if(UI.mode==='online')return side===ON.color&&ON.doc&&ON.doc.status==='playing';
+  return false;
+}
+const isAI=p=>UI.mode==='cpu'&&p===UI.aiSide;
+function addLog(t){G.log.unshift(t);if(G.log.length>50)G.log.length=50}
+
+function freshState(terrOn){
+  const terr=terrOn?genTerrain():new Array(SZ).fill(0);
+  const board=new Array(SZ).fill(0);board[idx(2,2)]=B;board[idx(14,14)]=W;
+  return {board,terr,scars:new Array(SZ).fill(0),turn:B,phase:'reinforce',toPlace:0,actions:0,tokens:{1:0,2:0},
+    whiteBonus:true,round:1,over:null,last:[],fresh:[],combat:null,fx:null,seq:0,log:[],started:false};
+}
+function adoptState(g){
+  G=g;UI.sel=-1;UI.overShown=!!G.over;UI.fxSeen=G.fx?G.fx.seq:0;UI.combatId=null;UI.eloMsg='';
+  document.getElementById('over').classList.add('hidden');
+}
+
+// commit: render + (online) sync
+function commit(){
+  G.seq++;render();
+  if(UI.mode==='online'&&ON.code&&ON.db){
+    const payload={G:JSON.parse(JSON.stringify(G))};if(G.over)payload.status='done';
+    const ref=ON.db.doc('games/'+ON.code);
+    ON.chain=ON.chain.then(()=>ref.update(payload)).catch(e=>{console.warn(e);toast('Could not sync the move. Check your connection.')});
+  }
+}
+function toast(t){addLog('⚠ '+t);render()}
+
+// ================= turn flow =================
+function startLocalGame(mode){
+  UI.mode=mode;ON.code=null;ON.color=0;ON.doc=null;stopGameSub();
+  adoptState(freshState(UI.terrOn));
+  addLog(`War begins${UI.mode==='cpu'?` vs ${LV[UI.level].name} computer`:''}! Black moves first. White starts deeper in its capital and wins its first battle automatically.`);
+  G.started=true;
+  hideMenu();drawBack();beginTurn();
+}
+function beginTurn(){
+  if(!G||G.over)return;
+  const st=stats(G.board,G.turn);
+  G.phase='reinforce';G.toPlace=st.prod;UI.sel=-1;
+  if(G.toPlace===0||!validPlacements(G.board,G.turn).length){
+    if(st.prod>0)addLog(`${NAMES[G.turn]}: no square available to reinforce.`);
+    G.phase='action';G.actions=3;
+  }
+  commit();
+  if(isAI(G.turn))aiTurn();
+}
+function endTurn(){
+  if(!G||G.over)return;
+  G.scars=G.scars.map(v=>v>0?v-1:0);
+  G.turn=opp(G.turn);if(G.turn===B)G.round++;
+  beginTurn();
+}
+function checkWin(){
+  for(const p of [B,W]){
+    const me=stats(G.board,p),them=stats(G.board,opp(p));
+    let why=null;
+    if(them.dots===0)why='All enemy dots eliminated.';
+    else if(me.excl>=6)why='Holds 6 capitals.';
+    if(why){G.over={winner:p,why};addLog(`🏆 ${NAMES[p]} wins — ${why}`);return true}
+  }
+  return false;
+}
+function applySurround(actor){
+  const r=resolveSurround(G.board,actor);
+  if(r.oppLost.length){G.tokens[actor]+=r.oppLost.length;r.oppLost.forEach(i=>G.scars[i]=Math.max(G.scars[i],5));
+    addLog(`⛓ ${NAMES[actor]} surrounded and captured ${r.oppLost.length} (${r.oppLost.map(cellName).join(', ')})`)}
+  if(r.ownLost.length){G.tokens[opp(actor)]+=r.ownLost.length;addLog(`⛓ ${NAMES[actor]} lost ${r.ownLost.length} dot(s) to a surround`)}
+}
+function doPlace(i){
+  const p=G.turn;G.board[i]=p;G.toPlace--;G.fresh=[i];G.last=[i];
+  addLog(`${NAMES[p]} deploys → ${cellName(i)}`);
+  applySurround(p);
+  if(!checkWin()&&(G.toPlace<=0||!validPlacements(G.board,p).length)){G.phase='action';G.actions=3}
+  commit();
+}
+function finishDeploy(){
+  if(G.toPlace>0)addLog(`${NAMES[G.turn]} skips ${G.toPlace} reinforcement(s)`);
+  G.phase='action';G.actions=3;commit();
+}
+function doMove(from,to){
+  const p=G.turn;G.board[to]=p;G.board[from]=0;G.actions--;G.last=[from,to];G.fresh=[];
+  addLog(`${NAMES[p]} moves ${cellName(from)} → ${cellName(to)}`);
+  applySurround(p);checkWin();
+  UI.sel=G.board[to]===p&&G.actions>0?to:-1;
+  commit();afterAction();
+}
+function afterAction(){
+  if(G.over||G.phase!=='action'||G.actions>0||!canControl(G.turn)||isAI(G.turn))return;
+  UI.lock=true;
+  setTimeout(()=>{UI.lock=false;if(G&&!G.over&&G.phase==='action'&&G.actions<=0&&!G.combat&&canControl(G.turn))endTurn()},450);
+}
+
+// ================= combat =================
+function outcome(C){
+  if(C.auto)return C.auto===C.p?'att':'def';
+  const x=C.a+C.A,y=C.d+C.D;return x>y?'att':x<y?'def':'tie';
+}
+function losingSides(C){const o=outcome(C);return o==='att'?[C.q]:o==='def'?[C.p]:[C.p,C.q]}
+function aiRespond(C){
+  let guard=0;
+  while(guard++<4&&!C.auto){
+    const ls=losingSides(C).filter(s=>isAI(s)&&G.tokens[s]>=Math.max(2,LV[UI.level].reroll));
+    if(!ls.length)break;const s=ls[0];G.tokens[s]-=2;
+    if(s===C.p)C.d=roll(12);else C.a=roll(20);
+    C.notes.push(`${NAMES[s]} spent 2 captures to force a reroll.`);
+  }
+}
+function startCombat(from,to){
+  const b=G.board,p=b[from],q=b[to],m=mods(b,from,to);
+  const C={id:G.seq+1,p,q,from,to,a:0,d:0,A:m.A,D:m.D,am:m.am,dm:m.dm,auto:0,notes:[]};
+  if(G.whiteBonus&&(p===W||q===W)){C.auto=W;G.whiteBonus=false;C.notes.push('White first-battle bonus: automatic win!')}
+  else{C.a=roll(20);C.d=roll(12);aiRespond(C)}
+  G.combat=C;UI.sel=-1;commit();
+  return new Promise(res=>UI.combatWaiters.push(res));
+}
+function resolveCombat(){
+  const C=G.combat;if(!C)return;
+  const o=outcome(C),p=C.p,q=C.q;
+  const sc=C.auto?'White first-battle bonus':`${C.a}${C.A?(C.A>0?'+':'')+C.A:''} vs ${C.d}${C.D?(C.D>0?'+':'')+C.D:''}`;
+  if(o==='att'){G.board[C.to]=p;G.board[C.from]=0;G.tokens[p]++;addLog(`⚔ ${NAMES[p]} takes ${cellName(C.to)} from ${cellName(C.from)} (${sc})`)}
+  else if(o==='def'){G.board[C.from]=0;G.tokens[q]++;addLog(`🛡 ${NAMES[q]} holds ${cellName(C.to)} — attacker destroyed (${sc})`)}
+  else addLog(`⚔ Stalemate at ${cellName(C.to)} (${sc})`);
+  G.scars[C.to]=Math.max(G.scars[C.to],o==='tie'?4:8);
+  if(o==='def')G.scars[C.from]=Math.max(G.scars[C.from],6);
+  G.fx={cell:C.to,seq:G.seq+1,kind:o};
+  G.last=[C.from,C.to];G.fresh=[];G.combat=null;G.actions--;
+  applySurround(p);checkWin();
+  UI.sel=(o==='att'&&G.board[C.to]===p&&G.actions>0&&canControl(p))?C.to:-1;
+  commit();afterAction();
+  const ws=UI.combatWaiters;UI.combatWaiters=[];ws.forEach(f=>f());
+}
+function animateDie(el,sides,final){
+  return new Promise(res=>{el.classList.add('roll');let k=0;
+    const t=setInterval(()=>{el.textContent=roll(sides);if(++k>9){clearInterval(t);el.textContent=final;el.classList.remove('roll');res()}},45)});
+}
+async function renderCombat(){
+  const M=document.getElementById('combat'),C=G&&G.combat;
+  if(!C){M.classList.add('hidden');UI.combatId=null;return}
+  M.classList.remove('hidden');
+  if(UI.animating)return;
+  const dA=document.getElementById('dA'),dD=document.getElementById('dD'),ok=document.getElementById('cOk'),btns=document.getElementById('cBtns'),res=document.getElementById('cRes'),wait=document.getElementById('cWait');
+  document.getElementById('cTitle').textContent=`Battle: ${cellName(C.from)} → ${cellName(C.to)}`;
+  document.getElementById('lA').textContent=`Attacker · ${NAMES[C.p]} (d20)`;
+  document.getElementById('lD').textContent=`Defender · ${NAMES[C.q]} (d12)`;
+  const ml=a=>a.map(([n,v])=>`${n} ${v>0?'+':''}${v}`).join('<br>');
+  document.getElementById('mA').innerHTML=ml(C.am);document.getElementById('mD').innerHTML=ml(C.dm);
+  if(UI.combatId!==C.id){
+    UI.combatId=C.id;UI.cA=C.a;UI.cD=C.d;dA.className='die';dD.className='die';btns.innerHTML='';res.textContent='';ok.disabled=true;
+    if(C.auto){dA.textContent='—';dD.textContent='—'}
+    else{UI.animating=true;await Promise.all([animateDie(dA,20,C.a),animateDie(dD,12,C.d)]);UI.animating=false;if(G&&G.combat&&(G.combat.a!==C.a||G.combat.d!==C.d)){renderCombat();return}}
+  }else if(UI.cA!==C.a||UI.cD!==C.d){
+    UI.animating=true;btns.innerHTML='';ok.disabled=true;
+    const jobs=[];if(UI.cA!==C.a)jobs.push(animateDie(dA,20,C.a));if(UI.cD!==C.d)jobs.push(animateDie(dD,12,C.d));
+    UI.cA=C.a;UI.cD=C.d;await Promise.all(jobs);UI.animating=false;
+  }
+  if(!G.combat||G.combat.id!==C.id)return;
+  const o=outcome(C);
+  dA.classList.toggle('win',o==='att');dA.classList.toggle('lose',o==='def');
+  dD.classList.toggle('win',o==='def');dD.classList.toggle('lose',o==='att');
+  const tot=(v,m)=>m?` <span style="font-size:13px;color:var(--muted)">(total ${v+m})</span>`:'';
+  res.innerHTML=(C.notes.length?`<div style="font-size:13px;color:var(--gold);font-weight:600">${C.notes.join('<br>')}</div>`:'')+
+    (C.auto?'':`<div style="font-size:13px;color:var(--muted);font-weight:600">${C.a}${tot(C.a,C.A)} vs ${C.d}${tot(C.d,C.D)}</div>`)+
+    (o==='att'?`${NAMES[C.p]} wins!`:o==='def'?`${NAMES[C.q]} holds the line!`:'Stalemate');
+  btns.innerHTML='';
+  if(!C.auto)for(const s of losingSides(C)){
+    const human=UI.mode==='local'||(UI.mode==='cpu'&&s!==UI.aiSide)||(UI.mode==='online'&&s===ON.color);
+    if(!human||G.tokens[s]<2)continue;
+    const bt=document.createElement('button');
+    bt.textContent=`${NAMES[s]}: spend 2 captures to force a reroll (have ${G.tokens[s]})`;
+    bt.onclick=()=>{if(UI.animating||!G.combat)return;G.tokens[s]-=2;C.notes.push(`${NAMES[s]} spent 2 captures to force a reroll.`);
+      if(s===C.p)C.d=roll(12);else C.a=roll(20);if(UI.mode==='cpu')aiRespond(C);commit()};
+    btns.appendChild(bt);
+  }
+  const canGo=UI.mode!=='online'||C.p===ON.color;
+  ok.classList.toggle('hidden',!canGo);wait.classList.toggle('hidden',canGo);
+  ok.disabled=false;
+}
+document.getElementById('cOk').onclick=()=>{if(!UI.animating&&G&&G.combat)resolveCombat()};
+
+// ================= input =================
+function onCell(i){
+  if(!G||G.over||G.combat||UI.animating||UI.lock||UI.aiRunning||!canControl(G.turn))return;
+  const p=G.turn,b=G.board;
+  if(G.phase==='reinforce'){if(validPlacements(b,p).includes(i))doPlace(i);return}
+  if(G.actions<=0)return;
+  if(b[i]===p){UI.sel=(UI.sel===i?-1:i);render();return}
+  if(UI.sel>=0){
+    if(moveTargets(b,UI.sel).includes(i)){doMove(UI.sel,i);return}
+    if(attackTargets(b,UI.sel).includes(i)){startCombat(UI.sel,i);return}
+  }
+  UI.sel=-1;render();
+}
+
+// ================= computer =================
+function evaluate(b,p,lv){
+  const q=opp(p),ctrl=capControl(b);let s=0,exP=0,exQ=0,cont=0;
+  ctrl.forEach(h=>{if(h[p]&&!h[q]){s+=40;exP++}else if(h[p]&&h[q]){s+=14;cont++}else if(h[q]){s-=40;exQ++}});
+  if(exP>=6)return 1e5;if(exQ>=6)return -1e5;
+  const dp=[],dq=[];for(let i=0;i<SZ;i++){if(b[i]===p)dp.push(i);else if(b[i]===q)dq.push(i)}
+  if(!dq.length)return 1e5;if(!dp.length)return -1e5;
+  s+=6*dp.length-6*dq.length+8*Math.min(3,exP+cont)-6*Math.min(3,exQ+cont);
+  CAPS.forEach((cap,k)=>{const h=ctrl[k];if(h[p]&&!h[q])return;let md=99;for(const i of dp)md=Math.min(md,distZone(cap,i));s-=1.6*md});
+  if(lv.threat===1){for(const i of dp)for(const n of NB8[i])if(b[n]===q&&canStep(b,n,i,q)){s-=2.5;break}}
+  else if(lv.threat===2){
+    for(const i of dp){let worst=0;for(const n of NB8[i])if(b[n]===q&&canStep(b,n,i,q)){const m=mods(b,n,i);worst=Math.max(worst,probs(m.A,m.D).w)}
+      if(worst)s-=worst*(ZONE[i]?14:9);}
+    for(const i of dq){let best=0;for(const n of NB8[i])if(b[n]===p&&canStep(b,n,i,p)){const m=mods(b,n,i);best=Math.max(best,probs(m.A,m.D).w)}if(best)s+=best*2}
+  }
+  return s;
+}
+function genActions(b,p){
+  const out=[];
+  for(let i=0;i<SZ;i++){if(b[i]!==p)continue;
+    for(const t of moveTargets(b,i))out.push({type:'move',i,t});
+    for(const t of attackTargets(b,i))out.push({type:'atk',i,t});}
+  return out;
+}
+function outcomesOf(b,p,a){
+  if(a.type==='move'){const nb=b.slice();nb[a.t]=p;nb[a.i]=0;resolveSurround(nb,p);return [{pr:1,b:nb}]}
+  const q=b[a.t];let pr;
+  if(G.whiteBonus&&(p===W||q===W))pr=p===W?{w:1,t:0,l:0}:{w:0,t:0,l:1};
+  else{const m=mods(b,a.i,a.t);pr=probs(m.A,m.D)}
+  const out=[];
+  if(pr.w){const wb=b.slice();wb[a.t]=p;wb[a.i]=0;resolveSurround(wb,p);out.push({pr:pr.w,b:wb})}
+  if(pr.l){const lb=b.slice();lb[a.i]=0;resolveSurround(lb,p);out.push({pr:pr.l,b:lb})}
+  if(pr.t)out.push({pr:pr.t,b});
+  return out;
+}
+const ev=(b,p,a,lv)=>outcomesOf(b,p,a).reduce((s,o)=>s+o.pr*evaluate(o.b,p,lv),0);
+function bestSingle(b,p,lv){let best=evaluate(b,p,lv);for(const a of genActions(b,p)){const v=ev(b,p,a,lv);if(v>best)best=v}return best}
+function chooseAction(lv){
+  const b=G.board,p=G.turn,base=evaluate(b,p,lv),acts=genActions(b,p);
+  if(!acts.length)return null;
+  if(Math.random()<lv.rand)return acts[rnd(acts.length)];
+  let scored=acts.map(a=>({a,v:ev(b,p,a,lv)+(Math.random()-.5)*lv.noise}));
+  if(lv.look&&G.actions>1){
+    scored.sort((x,y)=>y.v-x.v);scored=scored.slice(0,10);
+    for(const s of scored)s.v=outcomesOf(b,p,s.a).reduce((acc,o)=>acc+o.pr*bestSingle(o.b,p,lv),0)+(Math.random()-.5)*lv.noise;
+  }
+  let best=null,bv=base+0.8;for(const s of scored)if(s.v>bv){bv=s.v;best=s.a}
+  return best;
+}
+async function aiTurn(){
+  if(UI.aiRunning)return;UI.aiRunning=true;
+  const lv=LV[UI.level],p=G.turn,myG=G;
+  try{
+    await sleep(600);
+    while(G===myG&&G.phase==='reinforce'&&G.toPlace>0&&!G.over){
+      const opts=validPlacements(G.board,p);if(!opts.length)break;
+      let best=opts[rnd(opts.length)];
+      if(Math.random()>=lv.rand){let bv=-1e9;
+        for(const i of opts){const nb=G.board.slice();nb[i]=p;resolveSurround(nb,p);const v=evaluate(nb,p,lv)+(Math.random()-.5)*Math.min(lv.noise,3);if(v>bv){bv=v;best=i}}}
+      doPlace(best);await sleep(350);
+    }
+    if(G!==myG||G.over)return;
+    if(G.phase!=='action'){G.phase='action';G.actions=3;commit()}
+    await sleep(300);
+    while(G===myG&&G.actions>0&&!G.over){
+      const a=chooseAction(lv);if(!a)break;
+      UI.sel=a.i;render();await sleep(420);
+      if(a.type==='move')doMove(a.i,a.t);else await startCombat(a.i,a.t);
+      if(G!==myG||G.over)return;
+      await sleep(380);
+    }
+    if(G!==myG||G.over)return;
+    addLog(`${NAMES[p]} ends turn`);UI.sel=-1;
+  }finally{UI.aiRunning=false}
+  if(G===myG&&!G.over)endTurn();
+}
+
+// ================= drawing =================
+function drawBack(){
+  const key=SKIN+'|'+(G?G.terr.join(''):'');
+  if(key===UI.backKey)return;UI.backKey=key;
+  document.getElementById('back').innerHTML=skinSVG(SKIN,false,G?G.terr:null);
+  const has=G&&G.terr.some(v=>v);
+  document.getElementById('legendCard').classList.toggle('hidden',!has);
+  if(has)document.getElementById('legend').innerHTML=[1,2,4,3].map(v=>`<span><svg viewBox="0 0 1 1">${terrCell(v,0,0)}</svg>${TNAME[v]}: ${{1:'−1 on rolls',2:'+1 defending',4:'+1 attacking',3:'impassable'}[v]}</span>`).join('');
+}
+function buildBoard(){
+  const bd=document.getElementById('board');bd.innerHTML='';
+  for(let i=0;i<SZ;i++){const d=document.createElement('div');d.className='cell';d.onclick=()=>onCell(i);bd.appendChild(d)}
+}
+function renderFx(){
+  let h='';
+  for(let i=0;i<SZ;i++){const v=G.scars[i];if(!v)continue;const cx=cOf(i)+.5,cy=rOf(i)+.5;
+    if(v>=6){h+=`<circle cx="${cx}" cy="${cy}" r=".62" fill="url(#gScorch)"/><circle class="flick" cx="${cx}" cy="${cy}" r=".4" fill="url(#gBurn)"/>`+
+      `<circle class="ember" cx="${cx-.18}" cy="${cy-.1}" r=".05" fill="#ffcf6a"/><circle class="ember" style="animation-delay:.5s" cx="${cx+.15}" cy="${cy-.05}" r=".04" fill="#ffb347"/><circle class="ember" style="animation-delay:.9s" cx="${cx}" cy="${cy-.2}" r=".035" fill="#fff0b0"/>`}
+    else if(v>=3){h+=`<circle cx="${cx}" cy="${cy}" r=".58" fill="url(#gScorch)" opacity="${.45+v*.1}"/><path d="M${cx-.3} ${cy-.05} l.18 .06 l.1 -.12 M${cx+.05} ${cy+.1} l.15 .14 M${cx+.08} ${cy-.25} l-.05 .17" stroke="#00000088" stroke-width=".04" fill="none"/>`}
+    else{h+=`<circle cx="${cx}" cy="${cy}" r=".5" fill="url(#gScorch)" opacity=".22"/><path d="M${cx-.25} ${cy+.32} q.03 -.14 .1 -.18 M${cx+.22} ${cy+.3} q-.02 -.12 -.08 -.16" stroke="#5fae4a" stroke-width=".05" fill="none"/>`}}
+  document.getElementById('fxScars').innerHTML=h;
+  if(G.fx&&G.fx.seq>UI.fxSeen){UI.fxSeen=G.fx.seq;const cx=cOf(G.fx.cell)+.5,cy=rOf(G.fx.cell)+.5,g=document.getElementById('fxBoom');
+    g.innerHTML=`<circle class="boom2" cx="${cx}" cy="${cy}" r=".5"/><circle class="boom" cx="${cx}" cy="${cy}" r=".5"/>`;
+    const bw=document.getElementById('boardWrap');bw.classList.remove('shake');void bw.offsetWidth;bw.classList.add('shake');
+    setTimeout(()=>{g.innerHTML=''},900)}
+}
+function renderFront(b){
+  const ctrl=capControl(b),K=SKINS[SKIN];let f='';
+  for(const k of [6,12])f+=`<line x1="${k}" y1="0" x2="${k}" y2="18" stroke="${K.line}" stroke-width=".09"/><line x1="0" y1="${k}" x2="18" y2="${k}" stroke="${K.line}" stroke-width=".09"/>`;
+  CAPS.forEach((c,k)=>{
+    const nb=c.cells.filter(i=>b[i]===B).length,nw=c.cells.filter(i=>b[i]===W).length,n=Math.max(nb,nw);
+    if(n>0){ // walls grow with garrison size
+      const owner=nb>=nw?B:W,sw=Math.min(.3,.1+.06*n),dy=.05+.05*n,ts=.28+.1*n,stone=K.dark?'#a59c8e':'#8a8174',hi=K.dark?'#d2c9ba':'#b8af9f';
+      f+=`<rect x="${c.c0}" y="${c.r0+dy}" width="2" height="2" rx=".1" fill="none" stroke="#00000066" stroke-width="${sw}"/>`;
+      f+=`<rect x="${c.c0}" y="${c.r0}" width="2" height="2" rx=".1" fill="none" stroke="${stone}" stroke-width="${sw}"/>`;
+      f+=`<rect x="${c.c0}" y="${c.r0}" width="2" height="2" rx=".1" fill="none" stroke="${hi}" stroke-width="${sw*.3}" stroke-dasharray=".16 .12"/>`;
+      for(const[x,y]of [[c.c0,c.r0],[c.c0+2,c.r0],[c.c0,c.r0+2],[c.c0+2,c.r0+2]]){
+        f+=`<rect x="${x-ts/2}" y="${y-ts/2+dy}" width="${ts}" height="${ts}" fill="#00000066" rx=".04"/>`;
+        f+=`<rect x="${x-ts/2}" y="${y-ts/2}" width="${ts}" height="${ts}" fill="${stone}" stroke="${hi}" stroke-width=".03" rx=".04"/>`;}
+      if(n>=2){const fx=c.c0+2,fy=c.r0-ts/2;f+=`<line x1="${fx}" y1="${fy}" x2="${fx}" y2="${fy-.55}" stroke="#3a3028" stroke-width=".05"/><path d="M${fx} ${fy-.55} l.38 .12 l-.38 .12z" fill="${owner===B?'#111':'#f4f4f4'}" stroke="#0006" stroke-width=".02"/>`}
+    }
+    const h=ctrl[k],R=`x="${c.c0+.2}" y="${c.r0+.2}" width="1.6" height="1.6" rx=".1" fill="none" stroke-width=".08"`;
+    if(h[1]&&h[2])f+=`<rect ${R} stroke="#fff"/><rect ${R} stroke="#111" stroke-dasharray=".25 .25"/>`;
+    else if(h[1])f+=`<rect ${R} stroke="#111"/>`;
+    else if(h[2])f+=`<rect ${R} stroke="#fff"/>`;
+  });
+  document.getElementById('front').innerHTML=f;
+}
+function sideLabel(q){
+  if(!UI.mode)return NAMES[q];
+  if(UI.mode==='cpu')return q===UI.aiSide?`${NAMES[q]} · CPU`:`${NAMES[q]} · You`;
+  if(UI.mode==='online')return q===ON.color?`${NAMES[q]} · You`:NAMES[q];
+  return NAMES[q];
+}
+function sideSub(q){
+  if(UI.mode==='cpu')return q===UI.aiSide?`${LV[UI.level].name} (${LV[UI.level].elo})`:(ON.me?`Rating ${myElo()}`:'');
+  if(UI.mode==='online'&&ON.doc){const uid=q===B?ON.doc.host:ON.doc.guest,elo=q===B?ON.doc.hostElo:ON.doc.guestElo;
+    return uid?`<span data-uid="${uid}"></span> · ${elo}`:'waiting…'}
+  return '';
+}
+function render(){
+  if(!G){renderHeader();return}
+  drawBack();
+  const b=G.board,p=G.turn,cells=document.getElementById('board').children;
+  const human=canControl(p)&&!UI.aiRunning;
+  const place=new Set(G.phase==='reinforce'&&human&&!G.combat?validPlacements(b,p):[]);
+  const mv=new Set(),atk=new Set();
+  if(G.phase==='action'&&UI.sel>=0&&b[UI.sel]===p&&G.actions>0&&!G.combat){moveTargets(b,UI.sel).forEach(x=>mv.add(x));attackTargets(b,UI.sel).forEach(x=>atk.add(x))}
+  const con=G.phase==='reinforce'?connectedSet(b,p):null,last=new Set(G.last),fresh=new Set(G.fresh);
+  for(let i=0;i<SZ;i++){
+    const el=cells[i],v=b[i];
+    el.className='cell'+(place.has(i)?' place':'')+(mv.has(i)?' mv':'')+(atk.has(i)?' atk':'')+(i===UI.sel?' sel':'')+(last.has(i)&&!v?' last':'');
+    el.style.cursor=G.terr[i]===T_MTN?'not-allowed':'';
+    if(!v){if(el.firstChild)el.firstChild.remove()}
+    else{if(!el.firstChild)el.appendChild(document.createElement('div'));
+      el.firstChild.className='dot '+(v===B?'b':'w')+(con&&v===p&&!con.has(i)?' orphan':'')+(fresh.has(i)?' pop':'')}
+  }
+  renderFront(b);renderFx();
+  for(const q of [B,W]){
+    const st=stats(b,q),el=document.getElementById('pc'+q);
+    el.classList.toggle('active',G.turn===q&&!G.over);
+    let bar='';for(let k=0;k<6;k++)bar+=`<i class="${k<st.excl?'on':''}"></i>`;
+    el.innerHTML=`<div class="pname"><span class="chip ${q===B?'b':'w'}"></span>${sideLabel(q)}</div>
+      <div class="psub">${sideSub(q)}</div>
+      <div class="capbar">${bar}</div>
+      <div class="stat">Capitals held <b>${st.excl} / 6</b></div>
+      <div class="stat">Contested <b>${st.cont}</b></div>
+      <div class="stat">Dots <b>${st.dots}</b></div>
+      <div class="stat">Captures <b>${G.tokens[q]}</b></div>
+      <div class="stat">Reinforcements <b>+${st.prod}</b></div>
+      ${q===W&&G.whiteBonus?'<div class="stat" style="color:var(--gold)">Wins first battle</div>':''}`;
+  }
+  fillNames(document.querySelector('.players'));
+  const ph=document.getElementById('phase'),hint=document.getElementById('hint'),pips=document.getElementById('pips');
+  if(G.over){ph.textContent='Game over';hint.textContent=`${NAMES[G.over.winner]} won. ${G.over.why}`;pips.innerHTML=''}
+  else{
+    ph.textContent=`Round ${G.round} · ${NAMES[p]} · ${G.phase==='reinforce'?'Reinforce':'Action'}`;
+    if(UI.mode==='online'&&ON.doc&&ON.doc.status==='open')hint.textContent='Waiting for an opponent to join…';
+    else if(isAI(p))hint.textContent='The computer is planning its move…';
+    else if(!canControl(p))hint.textContent="Opponent's turn. Their moves appear here live.";
+    else if(G.phase==='reinforce')hint.textContent=`Tap a square with a green marker to deploy. Remaining: ${G.toPlace}. Faded dots are cut off from your capitals, so you can't reinforce from them.`;
+    else hint.textContent=UI.sel>=0?'Green: move · Red ring: attack. Tap the same dot again to deselect.':'Select one of your dots to move or attack.';
+    pips.innerHTML='';
+    if(G.phase==='action')for(let k=0;k<3;k++)pips.innerHTML+=`<i class="${k<G.actions?'on':''}"></i>`;
+    else for(let k=0;k<G.toPlace;k++)pips.innerHTML+='<i class="on"></i>';
+  }
+  const mine=canControl(p)&&!UI.aiRunning&&!G.combat;
+  document.getElementById('btnDonePlace').style.display=G.phase==='reinforce'&&!G.over?'':'none';
+  document.getElementById('btnEnd').style.display=G.phase==='action'&&!G.over?'':'none';
+  document.getElementById('btnDonePlace').disabled=!mine;
+  document.getElementById('btnEnd').disabled=!mine||UI.lock;
+  document.getElementById('log').innerHTML=G.log.map(t=>`<li>${esc(t)}</li>`).join('');
+  renderMatchCard();renderHeader();renderCombat();renderOver();
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function renderHeader(){
+  const r=document.getElementById('btnResign');
+  r.classList.toggle('hidden',!(G&&!G.over&&G.started&&(UI.mode!=='online'||ON.doc&&ON.doc.status==='playing')));
+}
+function renderOver(){
+  if(!G.over||UI.overShown)return;
+  UI.overShown=true;
+  const w=G.over.winner;
+  let title=`${NAMES[w]} wins!`;
+  if(UI.mode==='cpu')title=w===UI.aiSide?'Defeat':'Victory!';
+  if(UI.mode==='online')title=w===ON.color?'Victory!':'Defeat';
+  document.getElementById('overT').textContent=title;
+  document.getElementById('overP').textContent=`${G.over.why} (round ${G.round})`;
+  document.getElementById('overE').textContent='';
+  if(UI.mode==='cpu')rateVsCpu();
+  if(UI.mode==='online')maybeRateOnline();
+  setTimeout(()=>document.getElementById('over').classList.remove('hidden'),500);
+}
+function renderMatchCard(){
+  const el=document.getElementById('matchCard');
+  if(UI.mode!=='online'||!ON.code){el.classList.add('hidden');return}
+  el.classList.remove('hidden');
+  el.innerHTML=`<div class="row" style="justify-content:space-between"><div><div class="ctitle" style="margin:0">Online match</div><b style="letter-spacing:.15em;color:var(--gold)">${ON.code}</b></div><div class="muted">You are ${NAMES[ON.color]}</div></div>`;
+}
+
+// ================= online (db + user) =================
+const ON={db:null,user:null,me:null,rating:null,lobby:[],mine:[],top:[],code:null,color:0,doc:null,unsub:null,chain:Promise.resolve(),fairOnly:false,ratedCodes:{},ready:false,err:''};
+const myElo=()=>Math.round(ON.rating&&typeof ON.rating.elo==='number'?ON.rating.elo:1000);
+async function useCap(n){try{if(window.claude&&typeof window.claude.use==='function')return await window.claude.use(n)}catch(e){}return null}
+async function initOnline(){
+  ON.db=await useCap('db');ON.user=await useCap('user');
+  if(ON.db&&ON.user){try{ON.me=await ON.user.id()}catch(e){ON.me=null}}
+  if(!ON.db||!ON.me){ON.db=null;ON.ready=true;renderOnline();return}
+  const err=e=>{console.warn(e)};
+  ON.db.doc('ratings/'+ON.me).onSnapshot(s=>{ON.rating=s.exists?s.data():null;renderOnline();render()},err);
+  ON.db.collection('games').where('status','==','open').limit(40).onSnapshot(s=>{ON.lobby=s.docs.map(d=>d.data());renderOnline()},err);
+  const mineH=[],mineG=[];
+  const upd=()=>{ON.mine=[...mineH,...mineG].filter(d=>d.status==='playing');renderOnline()};
+  ON.db.collection('games').where('host','==',ON.me).limit(20).onSnapshot(s=>{mineH.length=0;s.docs.forEach(d=>mineH.push(d.data()));upd()},err);
+  ON.db.collection('games').where('guest','==',ON.me).limit(20).onSnapshot(s=>{mineG.length=0;s.docs.forEach(d=>mineG.push(d.data()));upd()},err);
+  ON.db.collection('ratings').orderBy('elo','desc').limit(10).onSnapshot(s=>{ON.top=s.docs.map(d=>({id:d.id,...d.data()}));renderOnline()},err);
+  ON.ready=true;renderOnline();
+}
+function fillNames(root){
+  if(!root||!ON.user)return;const els=[...root.querySelectorAll('[data-uid]')];if(!els.length)return;
+  const ids=[...new Set(els.map(e=>e.dataset.uid))];
+  ON.user.profiles(ids).then(ps=>els.forEach(e=>{const p=ps[e.dataset.uid];e.textContent=(p&&p.isMe)?'You':((p&&p.name)||'Player')}));
+}
+function genCode(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=A[rnd(A.length)];return s}
+function stopGameSub(){if(ON.unsub){ON.unsub();ON.unsub=null}}
+async function createOnline(){
+  if(!ON.db)return;
+  const code=genCode(),g=freshState(UI.terrOn);
+  g.log=['Game created. Waiting for an opponent…'];
+  try{await ON.db.doc('games/'+code).set({code,status:'open',host:ON.me,guest:null,hostElo:myElo(),guestElo:null,created:Date.now(),terrain:UI.terrOn,rated:{},G:g})}
+  catch(e){ON.err=e&&e.code==='invalid_argument'?"You can't create games on this page. Ask the owner to invite you as an Editor.":'Could not create the game. Try again.';renderOnline();return}
+  enterOnline(code,B);
+}
+async function joinOnline(code){
+  code=(code||'').trim().toUpperCase();if(!code||!ON.db)return;
+  ON.err='';const ref=ON.db.doc('games/'+code);
+  try{
+    const s=await ref.get();if(!s.exists){ON.err='No game with that code.';renderOnline();return}
+    const d=s.data();
+    if(d.host===ON.me){enterOnline(code,B);return}
+    if(d.guest===ON.me){enterOnline(code,W);return}
+    if(d.guest||d.status!=='open'){ON.err='That game is already full.';renderOnline();return}
+    const lease=await ref.acquire({holder:ON.me,ttlMs:5000});
+    if(!lease.acquired){ON.err='Someone else is joining right now. Try again in a moment.';renderOnline();return}
+    const s2=await ref.get();const d2=s2.data();
+    if(d2.guest&&d2.guest!==ON.me){ON.err='That game is already full.';renderOnline();return}
+    await ref.update({guest:ON.me,guestElo:myElo(),status:'playing'});
+    enterOnline(code,W);
+  }catch(e){ON.err=e&&e.code==='invalid_argument'?"You can't join games on this page. Ask the owner to invite you as an Editor.":'Could not join. Try again.';renderOnline()}
+}
+function enterOnline(code,color){
+  stopGameSub();ON.lastStatus='open';UI.mode='online';ON.code=code;ON.color=color;ON.doc=null;G=null;UI.backKey='';
+  ON.unsub=ON.db.doc('games/'+code).onSnapshot(s=>{
+    if(!s.exists){if(ON.code===code){ON.code=null;ON.doc=null;G=null;toastMenu('The game was cancelled.')}return}
+    const d=s.data();ON.doc=d;
+    if(!G||d.G.seq>G.seq){adoptState(JSON.parse(JSON.stringify(d.G)));drawBack()}
+    if(d.status==='playing'&&!G.started&&ON.color===B){G.started=true;addLog(`${'Opponent joined'}! War begins. Black moves first.`);hideMenu();beginTurn();return}
+    if(d.status!=='open'&&ON.lastStatus==='open')hideMenu();
+    ON.lastStatus=d.status;
+    render();renderOnline();
+    if(G.over)maybeRateOnline();
+  },e=>{toastMenu('Lost connection to the game.')});
+  renderOnline();
+}
+function toastMenu(t){ON.err=t;showMenu('online');renderOnline()}
+async function cancelOnline(){
+  if(!ON.code)return;const code=ON.code;stopGameSub();ON.code=null;ON.doc=null;G=null;UI.mode=null;
+  try{await ON.db.doc('games/'+code).delete()}catch(e){}
+  renderOnline();
+}
+function newElo(me,them,score,K){const E=1/(1+Math.pow(10,(them-me)/400));return Math.round(me+K*(score-E))}
+async function writeRating(elo,won){
+  const cur=ON.rating||{elo:1000,games:0,wins:0,losses:0};
+  await ON.db.doc('ratings/'+ON.me).set({elo,games:(cur.games||0)+1,wins:(cur.wins||0)+(won?1:0),losses:(cur.losses||0)+(won?0:1),updated:Date.now()});
+}
+async function rateVsCpu(){
+  if(!ON.db||!ON.me)return;
+  const before=myElo(),won=G.over.winner!==UI.aiSide,after=newElo(before,LV[UI.level].elo,won?1:0,16);
+  try{await writeRating(after,won);showEloMsg(before,after)}catch(e){}
+}
+async function maybeRateOnline(){
+  const d=ON.doc;if(!d||!G||!G.over||!ON.db)return;
+  if(ON.ratedCodes[d.code]||(d.rated&&d.rated[ON.me]))return;
+  ON.ratedCodes[d.code]=true;
+  const mine=ON.color===B?d.hostElo:d.guestElo,theirs=ON.color===B?d.guestElo:d.hostElo;
+  if(typeof mine!=='number'||typeof theirs!=='number')return;
+  const won=G.over.winner===ON.color,before=myElo(),after=before+(newElo(mine,theirs,won?1:0,32)-mine);
+  try{await writeRating(after,won);await ON.db.doc('games/'+d.code).update({rated:{[ON.me]:true}});showEloMsg(before,after)}catch(e){}
+}
+function showEloMsg(a,b){const d=b-a;document.getElementById('overE').textContent=`Rating ${a} → ${b} (${d>=0?'+':''}${d})`}
+function renderOnline(){
+  const box=document.getElementById('onlineBox');if(!box)return;
+  if(!ON.ready){box.innerHTML='<p class="muted" style="margin-top:12px">Connecting…</p>';return}
+  if(!ON.db){box.innerHTML=`<div class="note" style="margin-top:12px">Online play needs this page opened inside Claude while signed in. Friends need to be invited to this page by email as <b>Editors</b>. The downloaded offline copy can only play vs the computer and 2-player mode.</div>`;return}
+  let h=`<div class="row" style="justify-content:space-between;margin-top:12px"><div><div class="ctitle" style="margin:0">Your rating</div><b style="font-size:22px">${myElo()}</b> <span class="muted">${ON.rating?`${ON.rating.wins||0}W · ${ON.rating.losses||0}L`:'new player'}</span></div></div>`;
+  if(ON.err)h+=`<div class="note" style="color:var(--red)">${esc(ON.err)}</div>`;
+  if(ON.code&&ON.doc&&ON.doc.status==='open'&&ON.doc.host===ON.me){
+    h+=`<div class="ctitle">Invite a friend</div><div class="codebox">${ON.code}</div>
+      <p class="muted">Send this code to your friend. They open this Capital Wars page in Claude, go to <b>Online</b> and enter it. The game starts the moment they join.</p>
+      <div class="row"><button class="primary" id="btnCopy">Copy invite</button><button id="btnCancel">Cancel game</button></div>`;
+  }else{
+    h+=`<div class="ctitle">Play a friend</div>
+      <div class="row"><button class="primary" id="btnCreate">Create game</button><input type="text" id="codeIn" maxlength="5" placeholder="CODE"><button id="btnJoin">Join</button></div>
+      <p class="muted" style="margin:6px 0 0">Map setting below applies to games you create.</p>`;
+    if(ON.mine.length)h+=`<div class="ctitle">Your games in progress</div><div class="list">${ON.mine.map(d=>`<div class="lrow"><span class="who">${d.code} · vs <span data-uid="${d.host===ON.me?d.guest:d.host}"></span></span><button class="small primary" data-resume="${d.code}">Resume</button></div>`).join('')}</div>`;
+    const now=Date.now(),me=myElo();
+    let open=ON.lobby.filter(d=>d.host!==ON.me&&now-(d.created||0)<3*3600e3).sort((a,b)=>(b.created||0)-(a.created||0));
+    if(ON.fairOnly)open=open.filter(d=>Math.abs((d.hostElo||1000)-me)<=200);
+    h+=`<div class="ctitle">Open games</div><label class="muted" style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><input type="checkbox" id="fairChk" ${ON.fairOnly?'checked':''}> Fair matches only (within 200 of your rating)</label>`;
+    h+=open.length?`<div class="list">${open.map(d=>{const diff=(d.hostElo||1000)-me,fair=Math.abs(diff)<=200;
+      return `<div class="lrow"><span class="who"><span data-uid="${d.host}"></span> · ${d.hostElo||1000}${fair?'<span class="badge">Fair</span>':`<span class="badge warn">${diff>0?'Stronger':'Weaker'}</span>`}${d.terrain?' · Terrain':''}</span><button class="small primary" data-join="${d.code}">Join</button></div>`}).join('')}</div>`
+      :'<p class="muted">No open games right now. Create one and share the code.</p>';
+    if(ON.top.length)h+=`<div class="ctitle">Leaderboard</div><div class="list">${ON.top.map((r,i)=>`<div class="lrow"><span class="who">${i+1}. <span data-uid="${r.id}"></span></span><b>${Math.round(r.elo)}</b></div>`).join('')}</div>`;
+  }
+  box.innerHTML=h;fillNames(box);
+  const $=id=>document.getElementById(id);
+  if($('btnCreate'))$('btnCreate').onclick=()=>{ON.err='';createOnline()};
+  if($('btnJoin'))$('btnJoin').onclick=()=>joinOnline($('codeIn').value);
+  if($('codeIn'))$('codeIn').onkeydown=e=>{if(e.key==='Enter')joinOnline(e.target.value)};
+  if($('btnCancel'))$('btnCancel').onclick=cancelOnline;
+  if($('fairChk'))$('fairChk').onchange=e=>{ON.fairOnly=e.target.checked;renderOnline()};
+  if($('btnCopy'))$('btnCopy').onclick=async()=>{const t=`Join me in Capital Wars! Open the Capital Wars page in Claude → Online → enter code ${ON.code}`;
+    try{await navigator.clipboard.writeText(t);$('btnCopy').textContent='Copied!'}catch(e){$('btnCopy').textContent='Copy failed: share the code above'}};
+  box.querySelectorAll('[data-join]').forEach(b=>b.onclick=()=>joinOnline(b.dataset.join));
+  box.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>joinOnline(b.dataset.resume));
+  document.getElementById('setupBox').querySelector('#btnStart').classList.toggle('hidden',UI.tab==='online');
+}
+
+// ================= menu & controls =================
+function setSkin(k){
+  SKIN=k;try{localStorage.setItem('cw-skin',k)}catch(e){}
+  document.body.classList.toggle('darkskin',!!SKINS[k].dark);
+  document.getElementById('skinSel').value=k;
+  document.querySelectorAll('.skin').forEach(el=>el.classList.toggle('on',el.dataset.k===k));
+  UI.backKey='';
+  if(G)render();else document.getElementById('back').innerHTML=skinSVG(k,false,null);
+}
+function buildMenu(){
+  const sel=document.getElementById('skinSel'),grid=document.getElementById('skinGrid');
+  sel.innerHTML=Object.entries(SKINS).map(([k,v])=>`<option value="${k}">🗺 ${v.name}</option>`).join('');
+  sel.onchange=()=>setSkin(sel.value);
+  grid.innerHTML=Object.entries(SKINS).map(([k,v])=>`<div class="skin" data-k="${k}"><svg viewBox="0 0 18 18">${skinSVG(k,true,null)}</svg>${v.name}</div>`).join('');
+  grid.querySelectorAll('.skin').forEach(el=>el.onclick=()=>setSkin(el.dataset.k));
+  const lv=document.getElementById('levels');
+  lv.innerHTML=Object.entries(LV).map(([k,v])=>`<button data-lv="${k}">${v.name}<small>${v.desc} · ${v.elo}</small></button>`).join('');
+  const syncLv=()=>lv.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.lv===UI.level));
+  lv.querySelectorAll('button').forEach(b=>b.onclick=()=>{UI.level=b.dataset.lv;syncLv()});syncLv();
+  const ms=document.getElementById('mapSeg');
+  const syncMap=()=>ms.querySelectorAll('button').forEach(b=>b.classList.toggle('on',(b.dataset.terr==='1')===UI.terrOn));
+  ms.querySelectorAll('button').forEach(b=>b.onclick=()=>{UI.terrOn=b.dataset.terr==='1';syncMap()});syncMap();
+  document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+}
+function setTab(t){
+  UI.tab=t;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  for(const k of ['cpu','local','online'])document.getElementById('tab-'+k).classList.toggle('hidden',k!==t);
+  document.getElementById('btnStart').classList.toggle('hidden',t==='online');
+  if(t==='online')renderOnline();
+}
+function showMenu(tab){
+  if(tab)setTab(tab);
+  document.getElementById('btnResume').classList.toggle('hidden',!(G&&!G.over&&G.started));
+  document.getElementById('start').classList.remove('hidden');
+}
+function hideMenu(){document.getElementById('start').classList.add('hidden')}
+document.getElementById('btnStart').onclick=()=>startLocalGame(UI.tab==='cpu'?'cpu':'local');
+document.getElementById('btnResume').onclick=hideMenu;
+document.getElementById('btnMenu').onclick=()=>showMenu();
+document.getElementById('btnRules').onclick=()=>document.getElementById('rules').classList.remove('hidden');
+document.getElementById('btnAgain').onclick=()=>{document.getElementById('over').classList.add('hidden');showMenu(UI.mode==='online'?'online':UI.mode==='local'?'local':'cpu')};
+document.getElementById('btnOverClose').onclick=()=>document.getElementById('over').classList.add('hidden');
+document.getElementById('btnDonePlace').onclick=()=>{if(G&&!G.over&&G.phase==='reinforce'&&canControl(G.turn)&&!UI.aiRunning&&!G.combat)finishDeploy()};
+document.getElementById('btnEnd').onclick=()=>{if(G&&!G.over&&G.phase==='action'&&canControl(G.turn)&&!UI.aiRunning&&!G.combat&&!UI.lock){addLog(`${NAMES[G.turn]} ends turn`);endTurn()}};
+document.getElementById('btnResign').onclick=()=>{
+  if(!G||G.over)return;
+  const loser=UI.mode==='online'?ON.color:UI.mode==='cpu'?opp(UI.aiSide):G.turn;
+  G.over={winner:opp(loser),why:`${NAMES[loser]} resigned.`};addLog(`🏳 ${NAMES[loser]} resigned`);commit();
+};
+
+buildBoard();buildMenu();setSkin(SKIN);setTab('cpu');
+initOnline();
+</script>
+</body>
+</html>
