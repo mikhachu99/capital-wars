@@ -837,19 +837,76 @@ function renderMatchCard(){
 const ON={db:null,user:null,me:null,rating:null,lobby:[],mine:[],top:[],code:null,color:0,doc:null,unsub:null,chain:Promise.resolve(),fairOnly:false,ratedCodes:{},ready:false,err:''};
 const myElo=()=>Math.round(ON.rating&&typeof ON.rating.elo==='number'?ON.rating.elo:1000);
 async function useCap(n){try{if(window.claude&&typeof window.claude.use==='function')return await window.claude.use(n)}catch(e){}return null}
+// ---- Firebase backend (used outside Claude, e.g. GitHub Pages) ----
+const FB_CONFIG={apiKey:"AIzaSyArh8Jsuq4Bkx34UmvDLA6UhESoBmiAEys",authDomain:"capital-wars.firebaseapp.com",projectId:"capital-wars",storageBucket:"capital-wars.firebasestorage.app",messagingSenderId:"775585795031",appId:"1:775585795031:web:6bfac5daf2b7b5180dd992"};
+const FBV='10.12.2';let FB=null;const NAMECACHE={};
+async function initFirebase(){
+  const base=`https://www.gstatic.com/firebasejs/${FBV}/`;
+  const [appM,authM,fsM]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);
+  const app=appM.initializeApp(FB_CONFIG);
+  FB={authM,fsM,auth:authM.getAuth(app),fs:fsM.getFirestore(app),user:null};
+  try{await authM.getRedirectResult(FB.auth)}catch(e){}
+  await new Promise(res=>{let first=true;authM.onAuthStateChanged(FB.auth,u=>{FB.user=u;if(first){first=false;res()}else onFbAuthChange()})});
+}
+const fbEnc=d=>{const o={...d};if(o.G&&typeof o.G==='object'){o.Gj=JSON.stringify(o.G);delete o.G}return o};
+const fbDec=d=>{if(!d)return d;const o={...d};if(typeof o.Gj==='string'){try{o.G=JSON.parse(o.Gj)}catch(e){}delete o.Gj}return o};
+function fbFlat(d,pre,out){out=out||{};pre=pre||'';for(const[k,v]of Object.entries(d)){if(v&&typeof v==='object'&&!Array.isArray(v))fbFlat(v,pre+k+'.',out);else out[pre+k]=v}return out}
+const fbWrap=s=>({id:s.id,exists:s.exists(),data:()=>fbDec(s.data()),metadata:s.metadata});
+function fbDoc(path){const {fsM,fs}=FB,r=fsM.doc(fs,path);return {id:r.id,path,
+  get:async()=>fbWrap(await fsM.getDoc(r)),set:d=>fsM.setDoc(r,fbEnc(d)),update:d=>fsM.updateDoc(r,fbFlat(fbEnc(d))),
+  delete:()=>fsM.deleteDoc(r),acquire:async()=>({acquired:true}),
+  onSnapshot:(n,e)=>fsM.onSnapshot(r,s=>n(fbWrap(s)),err=>e&&e(err))}}
+function fbQuery(path,cons){cons=cons||[];const {fsM,fs}=FB,q=()=>fsM.query(fsM.collection(fs,path),...cons);return {
+  where:(f,op,v)=>fbQuery(path,[...cons,fsM.where(f,op,v)]),orderBy:(f,d)=>fbQuery(path,[...cons,fsM.orderBy(f,d||'asc')]),
+  limit:n=>fbQuery(path,[...cons,fsM.limit(n)]),doc:id=>fbDoc(path+'/'+id),
+  get:async()=>{const s=await fsM.getDocs(q());return {docs:s.docs.map(fbWrap),size:s.size,empty:s.empty}},
+  onSnapshot:(n,e)=>fsM.onSnapshot(q(),s=>n({docs:s.docs.map(fbWrap),size:s.size,empty:s.empty}),err=>e&&e(err))}}
+const fbDb={doc:fbDoc,collection:p=>fbQuery(p)};
+const fbUser={
+  id:async()=>FB.user?FB.user.uid:null,
+  profiles:async ids=>{ids=[].concat(ids).filter(Boolean);const out={};
+    await Promise.all(ids.map(async id=>{if(!(id in NAMECACHE)){NAMECACHE[id]='';try{const s=await FB.fsM.getDoc(FB.fsM.doc(FB.fs,'ratings/'+id));NAMECACHE[id]=s.exists()?(s.data().name||''):''}catch(e){}}
+      out[id]={id,name:NAMECACHE[id],isMe:!!(FB.user&&id===FB.user.uid)}}));return out}
+};
+async function fbSignIn(){
+  const {authM,auth}=FB,prov=new authM.GoogleAuthProvider();
+  try{await authM.signInWithPopup(auth,prov)}
+  catch(e){if(e&&(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'))await authM.signInWithRedirect(auth,prov);
+    else{ON.err='Sign-in failed: '+(e&&e.code||'unknown error');renderOnline()}}
+}
+async function fbSignOut(){stopOnlineSubs();await FB.authM.signOut(FB.auth)}
+async function onFbAuthChange(){
+  stopOnlineSubs();ON.me=FB.user?FB.user.uid:null;ON.rating=null;
+  if(ON.me){await ensureProfile();startOnlineSubs()}
+  renderOnline();render();
+}
+async function ensureProfile(){
+  const u=FB.user;ON.myName=u.displayName||(u.email||'').split('@')[0]||'Player';NAMECACHE[u.uid]=ON.myName;
+  try{const ref=ON.db.doc('ratings/'+u.uid),s=await ref.get();
+    if(!s.exists)await ref.set({elo:1000,games:0,wins:0,losses:0,name:ON.myName,updated:Date.now()});
+    else if(s.data().name!==ON.myName)await ref.update({name:ON.myName});}catch(e){console.warn(e)}
+}
+// ---- shared online init ----
+ON.subs=[];
+function stopOnlineSubs(){ON.subs.forEach(f=>{try{f()}catch(e){}});ON.subs=[]}
 async function initOnline(){
   ON.db=await useCap('db');ON.user=await useCap('user');
-  if(ON.db&&ON.user){try{ON.me=await ON.user.id()}catch(e){ON.me=null}}
-  if(!ON.db||!ON.me){ON.db=null;ON.ready=true;renderOnline();return}
+  if(ON.db&&ON.user){ON.backend='claude';try{ON.me=await ON.user.id()}catch(e){ON.me=null}if(!ON.me)ON.db=null}
+  else{ON.db=null;ON.user=null;
+    if(location.protocol.startsWith('http')){try{await initFirebase();ON.backend='firebase';ON.db=fbDb;ON.user=fbUser;ON.me=FB.user?FB.user.uid:null;if(ON.me)await ensureProfile()}catch(e){console.warn(e);ON.db=null;ON.backend=null}}}
+  ON.ready=true;
+  if(ON.db&&ON.me)startOnlineSubs();
+  renderOnline();render();
+}
+function startOnlineSubs(){
   const err=e=>{console.warn(e)};
-  ON.db.doc('ratings/'+ON.me).onSnapshot(s=>{ON.rating=s.exists?s.data():null;renderOnline();render()},err);
-  ON.db.collection('games').where('status','==','open').limit(40).onSnapshot(s=>{ON.lobby=s.docs.map(d=>d.data());renderOnline()},err);
+  ON.subs.push(ON.db.doc('ratings/'+ON.me).onSnapshot(s=>{ON.rating=s.exists?s.data():null;renderOnline();render()},err));
+  ON.subs.push(ON.db.collection('games').where('status','==','open').limit(40).onSnapshot(s=>{ON.lobby=s.docs.map(d=>d.data());renderOnline()},err));
   const mineH=[],mineG=[];
   const upd=()=>{ON.mine=[...mineH,...mineG].filter(d=>d.status==='playing');renderOnline()};
-  ON.db.collection('games').where('host','==',ON.me).limit(20).onSnapshot(s=>{mineH.length=0;s.docs.forEach(d=>mineH.push(d.data()));upd()},err);
-  ON.db.collection('games').where('guest','==',ON.me).limit(20).onSnapshot(s=>{mineG.length=0;s.docs.forEach(d=>mineG.push(d.data()));upd()},err);
-  ON.db.collection('ratings').orderBy('elo','desc').limit(10).onSnapshot(s=>{ON.top=s.docs.map(d=>({id:d.id,...d.data()}));renderOnline()},err);
-  ON.ready=true;renderOnline();
+  ON.subs.push(ON.db.collection('games').where('host','==',ON.me).limit(20).onSnapshot(s=>{mineH.length=0;s.docs.forEach(d=>mineH.push(d.data()));upd()},err));
+  ON.subs.push(ON.db.collection('games').where('guest','==',ON.me).limit(20).onSnapshot(s=>{mineG.length=0;s.docs.forEach(d=>mineG.push(d.data()));upd()},err));
+  ON.subs.push(ON.db.collection('ratings').orderBy('elo','desc').limit(10).onSnapshot(s=>{ON.top=s.docs.map(d=>({id:d.id,...d.data()}));renderOnline()},err));
 }
 function fillNames(root){
   if(!root||!ON.user)return;const els=[...root.querySelectorAll('[data-uid]')];if(!els.length)return;
@@ -863,7 +920,7 @@ async function createOnline(){
   const code=genCode(),g=freshState(UI.terrOn);
   g.log=['Game created. Waiting for an opponent…'];
   try{await ON.db.doc('games/'+code).set({code,status:'open',host:ON.me,guest:null,hostElo:myElo(),guestElo:null,created:Date.now(),terrain:UI.terrOn,rated:{},G:g})}
-  catch(e){ON.err=e&&e.code==='invalid_argument'?"You can't create games on this page. Ask the owner to invite you as an Editor.":'Could not create the game. Try again.';renderOnline();return}
+  catch(e){ON.err=e&&(e.code==='invalid_argument'||e.code==='permission-denied')?(ON.backend==='firebase'?'Permission denied. Try signing out and in again.':"You can't create games on this page. Ask the owner to invite you as an Editor."):'Could not create the game. Try again.';renderOnline();return}
   enterOnline(code,B);
 }
 async function joinOnline(code){
@@ -881,7 +938,7 @@ async function joinOnline(code){
     if(d2.guest&&d2.guest!==ON.me){ON.err='That game is already full.';renderOnline();return}
     await ref.update({guest:ON.me,guestElo:myElo(),status:'playing'});
     enterOnline(code,W);
-  }catch(e){ON.err=e&&e.code==='invalid_argument'?"You can't join games on this page. Ask the owner to invite you as an Editor.":'Could not join. Try again.';renderOnline()}
+  }catch(e){ON.err=e&&(e.code==='invalid_argument'||e.code==='permission-denied')?(ON.backend==='firebase'?'Could not join: the seat may have just been taken.':"You can't join games on this page. Ask the owner to invite you as an Editor."):'Could not join. Try again.';renderOnline()}
 }
 function enterOnline(code,color){
   stopGameSub();ON.lastStatus='open';UI.mode='online';ON.code=code;ON.color=color;ON.doc=null;G=null;UI.backKey='';
@@ -906,7 +963,7 @@ async function cancelOnline(){
 function newElo(me,them,score,K){const E=1/(1+Math.pow(10,(them-me)/400));return Math.round(me+K*(score-E))}
 async function writeRating(elo,won){
   const cur=ON.rating||{elo:1000,games:0,wins:0,losses:0};
-  await ON.db.doc('ratings/'+ON.me).set({elo,games:(cur.games||0)+1,wins:(cur.wins||0)+(won?1:0),losses:(cur.losses||0)+(won?0:1),updated:Date.now()});
+  await ON.db.doc('ratings/'+ON.me).set({name:ON.myName||cur.name||'',elo,games:(cur.games||0)+1,wins:(cur.wins||0)+(won?1:0),losses:(cur.losses||0)+(won?0:1),updated:Date.now()});
 }
 async function rateVsCpu(){
   if(!ON.db||!ON.me)return;
@@ -926,12 +983,14 @@ function showEloMsg(a,b){const d=b-a;document.getElementById('overE').textConten
 function renderOnline(){
   const box=document.getElementById('onlineBox');if(!box)return;
   if(!ON.ready){box.innerHTML='<p class="muted" style="margin-top:12px">Connecting…</p>';return}
-  if(!ON.db){box.innerHTML=`<div class="note" style="margin-top:12px">Online play needs this page opened inside Claude while signed in. Friends need to be invited to this page by email as <b>Editors</b>. The downloaded offline copy can only play vs the computer and 2-player mode.</div>`;return}
-  let h=`<div class="row" style="justify-content:space-between;margin-top:12px"><div><div class="ctitle" style="margin:0">Your rating</div><b style="font-size:22px">${myElo()}</b> <span class="muted">${ON.rating?`${ON.rating.wins||0}W · ${ON.rating.losses||0}L`:'new player'}</span></div></div>`;
+  if(!ON.db){box.innerHTML=`<div class="note" style="margin-top:12px">Online play isn't available in this copy. Open <b>https://mikhachu99.github.io/capital-wars/</b> to play online. Offline you can still play vs the computer and 2-player mode.</div>`;return}
+  if(ON.backend==='firebase'&&!ON.me){box.innerHTML=`<p class="muted" style="margin-top:12px">Sign in with Google to play friends online and get an Elo rating. Your name is shown to opponents and on the leaderboard.</p>${ON.err?`<div class="note" style="color:var(--red)">${esc(ON.err)}</div>`:''}<button class="primary" id="btnSignIn" style="width:100%;padding:12px">Sign in with Google</button>`;
+    document.getElementById('btnSignIn').onclick=()=>{ON.err='';fbSignIn()};return}
+  let h=`<div class="row" style="justify-content:space-between;margin-top:12px"><div><div class="ctitle" style="margin:0">Your rating</div><b style="font-size:22px">${myElo()}</b> <span class="muted">${ON.rating&&ON.rating.games?`${ON.rating.wins||0}W · ${ON.rating.losses||0}L`:'new player'}</span></div>${ON.backend==='firebase'?`<div style="text-align:right"><div class="muted">${esc(ON.myName||'')}</div><button class="small" id="btnSignOut">Sign out</button></div>`:''}</div>`;
   if(ON.err)h+=`<div class="note" style="color:var(--red)">${esc(ON.err)}</div>`;
   if(ON.code&&ON.doc&&ON.doc.status==='open'&&ON.doc.host===ON.me){
     h+=`<div class="ctitle">Invite a friend</div><div class="codebox">${ON.code}</div>
-      <p class="muted">Send this code to your friend. They open this Capital Wars page in Claude, go to <b>Online</b> and enter it. The game starts the moment they join.</p>
+      <p class="muted">Send this code to your friend. ${ON.backend==='firebase'?'They open the game link, sign in with Google, go to <b>Online</b> and enter it.':'They open this Capital Wars page in Claude, go to <b>Online</b> and enter it.'} The game starts the moment they join.</p>
       <div class="row"><button class="primary" id="btnCopy">Copy invite</button><button id="btnCancel">Cancel game</button></div>`;
   }else{
     h+=`<div class="ctitle">Play a friend</div>
@@ -949,12 +1008,13 @@ function renderOnline(){
   }
   box.innerHTML=h;fillNames(box);
   const $=id=>document.getElementById(id);
+  if($('btnSignOut'))$('btnSignOut').onclick=fbSignOut;
   if($('btnCreate'))$('btnCreate').onclick=()=>{ON.err='';createOnline()};
   if($('btnJoin'))$('btnJoin').onclick=()=>joinOnline($('codeIn').value);
   if($('codeIn'))$('codeIn').onkeydown=e=>{if(e.key==='Enter')joinOnline(e.target.value)};
   if($('btnCancel'))$('btnCancel').onclick=cancelOnline;
   if($('fairChk'))$('fairChk').onchange=e=>{ON.fairOnly=e.target.checked;renderOnline()};
-  if($('btnCopy'))$('btnCopy').onclick=async()=>{const t=`Join me in Capital Wars! Open the Capital Wars page in Claude → Online → enter code ${ON.code}`;
+  if($('btnCopy'))$('btnCopy').onclick=async()=>{const t=ON.backend==='firebase'?`Join me in Capital Wars! Open ${location.origin+location.pathname} → Online → sign in → enter code ${ON.code}`:`Join me in Capital Wars! Open the Capital Wars page in Claude → Online → enter code ${ON.code}`;
     try{await navigator.clipboard.writeText(t);$('btnCopy').textContent='Copied!'}catch(e){$('btnCopy').textContent='Copy failed: share the code above'}};
   box.querySelectorAll('[data-join]').forEach(b=>b.onclick=()=>joinOnline(b.dataset.join));
   box.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>joinOnline(b.dataset.resume));
